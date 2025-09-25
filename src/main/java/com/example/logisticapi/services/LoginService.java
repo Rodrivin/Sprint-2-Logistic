@@ -1,41 +1,39 @@
-// Conteúdo do ficheiro: src/main/java/com/example/logisticapi/services/LoginService.java
 package com.example.logisticapi.services;
 
 import com.example.logisticapi.dtos.LoginRequest;
 import com.example.logisticapi.dtos.LoginResponse;
-import com.example.logisticapi.models.Usuario;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.logisticapi.security.JwtUtil;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
-
-// Este serviço lida com a lógica de autenticação.
-// Para esta sprint, faremos uma validação simples de credenciais.
 @Service
 public class LoginService {
 
-    private final UsuarioService usuarioService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
 
-    public LoginService(UsuarioService usuarioService) {
-        this.usuarioService = usuarioService;
+    public LoginService(AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
+        this.authenticationManager = authenticationManager;
+        this.jwtUtil = jwtUtil;
     }
 
     public LoginResponse authenticate(LoginRequest loginRequest) {
-        // Busca o usuário pelo email
-        Optional<Usuario> usuarioOptional = usuarioService.findByEmail(loginRequest.getEmail());
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
 
-        if (usuarioOptional.isPresent()) {
-            Usuario usuario = usuarioOptional.get();
-            // Verifica se a senha corresponde (em um sistema real, usaria criptografia como BCrypt)
-            if (usuario.getSenha().equals(loginRequest.getSenha())) {
-                // Autenticação bem-sucedida
-                // Gerar um token simples para simulação (em produção seria um JWT)
-                String simulatedToken = "fake-jwt-token-" + usuario.getId();
-                // Retorna o nome do usuário na resposta
-                return new LoginResponse("Login bem-sucedido!", simulatedToken, usuario.getId(), usuario.getNome()); // <--- Nome adicionado aqui
-            }
+            String token = jwtUtil.generateToken(authentication.getName());
+
+            return new LoginResponse(token, "Autenticação realizada com sucesso!");
+        } catch (AuthenticationException e) {
+            return new LoginResponse(null, "Credenciais inválidas");
         }
-        // Credenciais inválidas
-        return new LoginResponse("Email ou senha inválidos.", null, null, null); // <--- Nome nulo para falha
     }
 }
